@@ -58,7 +58,7 @@ class ParserTests {
         """.trimIndent()
 
         assertEquals(
-            "Failed to parse function caused by [Excpected '}' at 2:15] at 0:0",
+            "Failed to parse function caused by [Excpected '}' at 2:0] at 0:0",
             (funParser(Input(case3)) as ParseError).toString()
         )
     }

@@ -29,7 +29,7 @@ data class Input(
 
     fun next(): Char {
         if (str[pos] == '\n') {
-            myCurrColumn += 0
+            myCurrColumn = 0
             myCurrLine += 1
         } else {
             myCurrColumn += 1
@@ -43,7 +43,7 @@ data class Input(
 
     fun incr() {
         if (str[pos] == '\n') {
-            myCurrColumn += 0
+            myCurrColumn = 0
             myCurrLine += 1
         } else {
             myCurrColumn += 1
