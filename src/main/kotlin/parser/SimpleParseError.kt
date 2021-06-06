@@ -1,9 +1,9 @@
 package parser
 
-data class SimpleParseError<T>(
+class SimpleParseError<T>(
     val msg: String,
-    val line: Int,
-    val col: Int
+    line: Int,
+    col: Int
 ): ParseError<T>(line, col) {
     override fun toString(): String {
         return "$msg at ${line}:${col}"

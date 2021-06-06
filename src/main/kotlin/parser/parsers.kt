@@ -1,5 +1,7 @@
 package parser
 
+import java.lang.Error
+
 fun <T> parser(parseFunc: (Input) -> ParseResult<T>): Parser<T> {
     return object : Parser<T> {
         override fun parse(input: Input): ParseResult<T> {
@@ -67,9 +69,8 @@ operator fun <T> Parser<T>.times(other: Parser<T>): Parser<T> {
     return parser {
         when (val res1 = this.parse(it)) {
             is ParseError -> {
-                val res2 = other.parse(it)
-                when (res2) {
-                    is ParseError -> AltParseError(res1, res2, it.getLine(), it.getColumn())
+                when (val res2 = other.parse(it)) {
+                    is ParseError -> AltParseError(res1, res2 as ParseError<out T>, it.getLine(), it.getColumn())
                     else -> res2
                 }
             }
@@ -107,16 +108,26 @@ fun spaces(): Parser<Unit> {
     return (+space()).lose()
 }
 
-fun parseWhile(name: String, cond: (Char) -> Boolean): Parser<String> {
+fun parseWhile(name: String, acceptEmpty: Boolean = false, cond: (Char) -> Boolean): Parser<String> {
     return parser {
         var res = ""
-        while (cond(it.peek())) {
+        while (!it.eof() && cond(it.peek())) {
             res += it.next()
         }
-        if (res.isEmpty()) {
-            SimpleParseError("Symbol is not $name", it.getLine(), it.getColumn())
+        if (res.isEmpty() && !acceptEmpty) {
+            SimpleParseError("Expected at least one symbol that is $name", it.getLine(), it.getColumn())
         } else {
             Ok(res)
+        }
+    }
+}
+
+fun symb(name: String, cond: (Char) -> Boolean): Parser<Char> {
+    return parser {
+        if (!it.eof() && cond(it.peek())) {
+            Ok(it.next())
+        } else {
+            SimpleParseError("Symbol is not $name", it.getLine(), it.getColumn())
         }
     }
 }
@@ -129,6 +140,7 @@ fun <T> Parser<T>.many(): Parser<List<T>> {
             if (currRes is ParseError) {
                 break
             }
+            res.add(currRes.unwrap())
         }
         Ok(res)
     }
@@ -136,4 +148,33 @@ fun <T> Parser<T>.many(): Parser<List<T>> {
 
 operator fun <T> Parser<T>.unaryPlus(): Parser<List<T>> {
     return this.many()
+}
+
+fun Parser<String>.orEmpty(): Parser<String> {
+    return parser {
+        val res = this.parse(it)
+        when(res) {
+            is ParseError -> Ok("")
+            is Ok -> res
+        }
+    }
+}
+
+operator fun Parser<String>.plus(other: Parser<String>): Parser<String> {
+    return combine {
+        val first = this[it]
+        val second = other[it]
+        Ok(first + second)
+    }
+}
+
+fun <T, S> Parser<T>.map(mapping: (T) -> S): Parser<S> {
+    return parser {
+        val res = this(it)
+        when (res) {
+            is SimpleParseError -> SimpleParseError(res.msg, res.line, res.col)
+            is ParseError -> SimpleParseError("Unknown error", it.getLine(), it.getColumn())
+            is Ok -> Ok(mapping(res.res))
+        }
+    }
 }

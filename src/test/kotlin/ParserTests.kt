@@ -47,7 +47,7 @@ class ParserTests {
         """.trimIndent()
 
         assertEquals(
-            "Failed to parse function caused by [Symbol is not letter or digit at 0:4] at 0:0",
+            "Failed to parse function caused by [Expected at least one symbol that is letter or digit at 0:4] at 0:0",
             (funParser(Input(case2)) as ParseError).toString()
         )
 

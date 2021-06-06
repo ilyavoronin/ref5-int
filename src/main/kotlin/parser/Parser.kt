@@ -1,5 +1,5 @@
 package parser
 
-interface Parser<T> {
-    fun parse(input: Input): ParseResult<T>
+interface Parser<out T> {
+    fun parse(input: Input): ParseResult<out T>
 }

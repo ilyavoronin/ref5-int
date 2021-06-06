@@ -1,6 +1,6 @@
 package parser
 
-sealed class ParseResult<T> {
+sealed class ParseResult<out T> {
     abstract fun isError(): Boolean
 
     abstract fun unwrap(): T
@@ -16,7 +16,7 @@ data class Ok<T>(val res: T): ParseResult<T>() {
     }
 }
 
-abstract class  ParseError<T>(line: Int, col: Int): ParseResult<T>() {
+abstract class ParseError<out T>(val line: Int, val col: Int): ParseResult<T>() {
 
     override fun isError(): Boolean {
         return true
