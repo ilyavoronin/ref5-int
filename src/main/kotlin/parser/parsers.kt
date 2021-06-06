@@ -168,6 +168,14 @@ operator fun Parser<String>.plus(other: Parser<String>): Parser<String> {
     }
 }
 
+operator fun <T> Parser<*>.minus(other: Parser<T>): Parser<T> {
+    return combine {
+        this[it]
+        val second = other[it]
+        Ok(second)
+    }
+}
+
 fun <T, S> Parser<T>.map(mapping: (T) -> S): Parser<S> {
     return parser {
         val res = this(it)

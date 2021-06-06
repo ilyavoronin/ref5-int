@@ -11,6 +11,14 @@ val ref5_ident = combine { it ->
     Ok(RIdent(firstSymb + name))
 }
 
+val ref5_var_ident = combine { it ->
+    spaces()[it]
+    val firstSymb = symb("letter") { it.isLetter() }[it]
+    val name = parseWhile("symbol for ident", true) { it.isLetterOrDigit() || it == '-' || it == '_' }[it]
+    spaces()[it]
+    Ok(firstSymb + name)
+}
+
 val ref5_string = combine {
     spaces()[it]
     const("'")[it]
@@ -40,7 +48,7 @@ val ref5_float = combine {
     Ok(RFloat(num + rest))
 }
 
-val ref5_symb = ref5_string * ref5_ident * ref5_float * ref5_num
+val ref5_symb: Parser<RSymb> = ref5_string * ref5_ident * ref5_float * ref5_num
 
 val ref5_term = ref5_symb * combine {
     spaces()[it]

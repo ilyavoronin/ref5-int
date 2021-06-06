@@ -65,4 +65,52 @@ class ParseRef5Tests {
             ref5_expr["   Begin (Ho-ho-ho '(' ('A joke')) End ".wrap()]
         )
     }
+
+    @Test
+    fun testPattern() {
+        assertEquals(
+            RMultPattern(listOf(REvar("1"), REvar("Data1"), REvar("data1"), RSvar("X"), RSvar("Free-var"), RTvar("1"), RTvar("25"))),
+            ref5_pattern["e.1  e.Data1  e.data1  s.X  s.Free-var  t.1  t.25".wrap()]
+        )
+
+        assertEquals(
+            RMultPattern(listOf(REvar("1"), RString("+"), REvar("2"))),
+            ref5_pattern["e.1 '+' e.2 ".wrap()]
+        )
+
+        assertEquals(
+            RMultPattern(listOf(
+                RPatternBraced(RMultPattern(listOf(RIdent("A"), RString("+"), RIdent("B")))),
+                RString("*"),
+                RPatternBraced(RMultPattern(listOf(RIdent("C"), RString("-"), RIdent("D")))),
+            )),
+            ref5_pattern["  (A'+'B)'*'(C'-'D)".wrap()]
+        )
+
+        assertEquals(
+            RMultPattern(listOf(
+                RPatternBraced(RMultPattern(listOf(RIdent("A"), RString("+"), RTvar("B")))),
+                RString("*"),
+                RPatternBraced(RMultPattern(listOf(RIdent("C"), RString("-"), REvar("D")))),
+            )),
+            ref5_pattern["  (A'+'t.B)'*'(C'-'e.D)".wrap()]
+        )
+    }
+
+
+    @Test
+    fun testPatternMatching() {
+        assertEquals(
+            RPatMatching(RMultExpr(listOf()), RMultPattern(listOf(REvar("1"), RString("+"), REvar("2")))),
+            ref5_pat_matching[":e.1 '+' e.2 ".wrap()]
+        )
+
+        assertEquals(
+            RPatMatching(
+                RMultExpr(listOf(RIdent("A"), RString("+"), RBraced(RMultExpr(listOf(RIdent("C"), RIdent("D")))))),
+                RMultPattern(listOf(REvar("1"), RString("+"), REvar("2")))
+            ),
+            ref5_pat_matching[" A '+' ( C D ):e.1 '+' e.2 ".wrap()]
+        )
+    }
 }
