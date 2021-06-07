@@ -167,7 +167,7 @@ class Refal5interpreter {
                     .map {apply(values, it)}.flatMap {
                         if (it is ApplyRes.ApplyError) return@apply it
                         val nexpr = (it as ApplyRes.ApplySucc).expr
-                        if (nexpr is RMultExpr) nexpr.terms else listOf(it as RTerm)
+                        if (nexpr is RMultExpr) nexpr.terms else listOf(nexpr as RTerm)
                     }
                 ApplyRes.ApplySucc(RMultExpr(nterms))
             }
