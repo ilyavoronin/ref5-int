@@ -9,7 +9,7 @@ class ParseRef5Tests {
     @Test
     fun testParseIdent() {
         assertEquals(RIdent("Abacaba123_-"), ref5_ident[Input(" Abacaba123_- ")])
-        assertEquals("Failed to parse  caused by [Symbol is not capital letter at 0:0] at 0:0", ref5_ident("abacaba".wrap()).toString())
+        assertEquals("Failed to parse ident caused by [Symbol is not capital letter at 0:0] at 0:0", ref5_ident("abacaba".wrap()).toString())
         assertEquals(RIdent("Abacab"), ref5_ident["Abacab&".wrap()])
     }
 
@@ -97,6 +97,14 @@ class ParseRef5Tests {
         )
     }
 
+    @Test
+    fun testFuncCall() {
+        assertEquals(
+            RFCall("Fact", RFCall("-", RMultExpr(RSvar("N"), RNum("1")))),
+            ref5_fcall["<Fact <- s.N 1>>".wrap()]
+        )
+    }
+
 
     @Test
     fun testPatternMatching() {
@@ -111,6 +119,68 @@ class ParseRef5Tests {
                 RMultPattern(listOf(REvar("1"), RString("+"), REvar("2")))
             ),
             ref5_pat_matching[" A '+' ( C D ):e.1 '+' e.2 ".wrap()]
+        )
+
+        assertEquals(
+            RPatMatching(
+                RFCall("*", RMultExpr(listOf(RSvar("N"), RFCall("Fact", RFCall("-", RMultExpr(RSvar("N"), RNum("1"))))))),
+                RSvar("N")
+            ),
+            ref5_func_match["s.N = <* s.N <Fact <- s.N 1>>>; ".wrap()]
+        )
+    }
+
+    @Test
+    fun testParseFunc() {
+        val case1 = """
+         Fact {
+          0 = 1;
+          s.N = <* s.N <Fact <- s.N 1>>>; 
+         }
+        """.trimIndent().wrap()
+
+        assertEquals(
+            RFunc("Fact", listOf(
+                RPatMatching(RNum("1"), RNum("0")),
+                RPatMatching(
+                    RFCall("*", RMultExpr(listOf(RSvar("N"), RFCall("Fact", RFCall("-", RMultExpr(RSvar("N"), RNum("1"))))))),
+                    RSvar("N")
+                )
+            )
+            ),
+            ref5_fun[case1].also { println(case1) }
+        )
+    }
+
+    @Test
+    fun testParseProgram() {
+        val case1 = """
+            Table { = (('cane') 'dog')
+                (('gatto') 'cat');
+            }
+            
+            Trans { 
+                 (e.Word) e.1 ((e.Word) e.Trans) e.2 = e.Trans;
+                 (e.Word) e.1  =  '***';  
+            }
+            
+            Ital-Engl { e.W = <Trans (e.W) <Table>>; }
+        """.trimIndent().wrap()
+
+        assertEquals(
+            RProgram(
+                RFunc("Table",
+                    RPatMatching(RMultExpr(RBraced(RMultExpr(RBraced(RString("cane")), RString("dog"))), RBraced(RMultExpr(RBraced(RString("gatto")), RString("cat")))), RMultPattern()),
+                ),
+                RFunc("Trans",
+                    RPatMatching(REvar("Trans"), RMultPattern(RPatternBraced(REvar("Word")), REvar("1"), RPatternBraced(RMultPattern(RPatternBraced(REvar("Word")), REvar("Trans"))), REvar("2"))),
+                    RPatMatching(RString("***"), RMultPattern(RPatternBraced(REvar("Word")), REvar("1")))
+                ),
+                RFunc("Ital-Engl",
+                    RPatMatching(RFCall("Trans", RMultExpr(RBraced(REvar("W")), RFCall("Table", RMultExpr()))), REvar("W"))
+                )
+            ),
+            ref5_prog[case1]
         )
     }
 }

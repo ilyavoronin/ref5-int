@@ -132,7 +132,7 @@ fun symb(name: String, cond: (Char) -> Boolean): Parser<Char> {
     }
 }
 
-fun <T> Parser<T>.many(): Parser<List<T>> {
+fun <T> Parser<T>.many(atLeastOne: Boolean, name: String): Parser<List<T>> {
     return parser {
         val res = mutableListOf<T>()
         while (true) {
@@ -142,12 +142,43 @@ fun <T> Parser<T>.many(): Parser<List<T>> {
             }
             res.add(currRes.unwrap())
         }
-        Ok(res)
+        if (atLeastOne && res.isEmpty()) {
+            SimpleParseError("Should parse at least one $name", it.getLine(), it.getColumn())
+        } else {
+            Ok(res)
+        }
+    }
+}
+
+fun <T> Parser<T>.untilEof(atLeastOne: Boolean, name: String): Parser<List<T>> {
+    return parser {
+        val res = mutableListOf<T>()
+        while (true) {
+            val currRes = this.parse(it)
+            if (currRes is ParseError) {
+                if (it.eof()) {
+                    break
+                } else {
+                    return@parser SimpleParseError("Can't parse the whole file, caused by [$currRes]", it.getLine(), it.getColumn())
+                }
+            } else {
+                res.add(currRes.unwrap())
+            }
+        }
+        if (atLeastOne && res.isEmpty()) {
+            SimpleParseError("Should parse at least one $name", it.getLine(), it.getColumn())
+        } else {
+            Ok(res)
+        }
     }
 }
 
 operator fun <T> Parser<T>.unaryPlus(): Parser<List<T>> {
-    return this.many()
+    return this.many(false, "")
+}
+
+operator fun <T> Parser<T>.not(): Parser<List<T>> {
+    return this.many(true, "")
 }
 
 fun Parser<String>.orEmpty(): Parser<String> {
