@@ -60,9 +60,45 @@ val ref5_fcall = combine("function call") {
     Ok(RFCall(ident, exp))
 }
 
-val ref5_evar = (const("e.") - (ref5_var_ident * ref5_num.map {it.str})).map {REvar(it)}
-val ref5_svar = (const("s.") - (ref5_var_ident * ref5_num.map {it.str})).map {RSvar(it)}
-val ref5_tvar = (const("t.") - (ref5_var_ident * ref5_num.map {it.str})).map {RTvar(it)}
+val ref5_evar = (
+        (const("e.") - (ref5_var_ident * ref5_num.map {it.str})) *
+                (combine {
+                    spaces()[it]
+                    const("e")[it]
+                    val name = symb("letter or digit") {it.isLetterOrDigit()}.map {it.toString()}[it]
+                    if (it.peek().isLetterOrDigit()) {
+                        fail<String>("", it.getLine(), it.getColumn())
+                    }
+                    spaces()[it]
+                    Ok(name)
+                })
+        ).map {REvar(it)}
+val ref5_svar = (
+        (const("s.") - (ref5_var_ident * ref5_num.map {it.str})) *
+                (combine {
+                    spaces()[it]
+                    const("s")[it]
+                    val name = symb("letter or digit") {it.isLetterOrDigit()}.map {it.toString()}[it]
+                    if (it.peek().isLetterOrDigit()) {
+                        fail<String>("", it.getLine(), it.getColumn())
+                    }
+                    spaces()[it]
+                    Ok(name)
+                })
+        ).map {RSvar(it)}
+val ref5_tvar = (
+        (const("t.") - (ref5_var_ident * ref5_num.map {it.str})) *
+                (combine {
+                    spaces()[it]
+                    const("t")[it]
+                    val name = symb("letter or digit") {it.isLetterOrDigit()}.map {it.toString()}[it]
+                    if (it.peek().isLetterOrDigit()) {
+                        fail<String>("", it.getLine(), it.getColumn())
+                    }
+                    spaces()[it]
+                    Ok(name)
+                })
+        ).map {RTvar(it)}
 
 val ref5_symb: Parser<RSymb> = ref5_string * ref5_fcall * ref5_evar * ref5_svar * ref5_tvar * ref5_ident * ref5_float * ref5_num
 

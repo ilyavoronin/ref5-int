@@ -6,7 +6,6 @@ import refal5.tree.RMultExpr
 import refal5.tree.RNum
 import refal5.tree.RString
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 class Ref5IntTests {
     @Test
@@ -150,7 +149,7 @@ class Ref5IntTests {
             }
             
             Call {
-                 s.1 e.1 = <Mu s.1 e.1> ;
+                 s1 e.1 = <Mu s1 e.1> ;
             }
             
             F1 {

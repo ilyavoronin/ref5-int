@@ -1,0 +1,14 @@
+Go {
+    = <Print 'Enter number:'> <Run <Card>>;
+}
+
+Run {
+  'exit' = ;
+  s1 = <Print <Fib s1>> <Print 'Enter number:'> <Run <Card> >;
+}
+
+Fib {
+    0 = 1 ;
+    1 = 1 ;
+    s.Num = <+ <Fib <- s.Num 1>> <Fib <- s.Num 2> > > ;
+}

@@ -1,0 +1,19 @@
+Go {
+    = <Print 'Enter expression:'> <Run <Card>>;
+}
+
+Run {
+  'exit' = ;
+  e1 = <Print <MapPal <Pal e1> > > <Print 'Enter expression:'> <Run <Card> >;
+}
+
+MapPal {
+	True = 'Palindrome';
+	False = 'Not palindrome';
+}
+
+Pal { = True;
+     s.1 = True;
+     s.1 e.2 s.1 = <Pal e.2>;
+     e.1 = False;  
+}

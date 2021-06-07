@@ -100,8 +100,12 @@ operator fun <T> Parser<T>.get(input: Input): T {
     return this.parse(input).unwrap()
 }
 
+fun comment(): Parser<Unit> {
+    return (const("*") + parseWhile("", true) {it != '\n'}).lose()
+}
+
 fun space(): Parser<Unit> {
-    return (const(" ") * const("\n") * const("\t")).lose()
+    return (const(" ") * const("\n") * const("\t") * comment()).lose()
 }
 
 fun spaces(): Parser<Unit> {
@@ -171,6 +175,21 @@ fun <T> Parser<T>.untilEof(atLeastOne: Boolean, name: String): Parser<List<T>> {
             SimpleParseError("Empty file", it.getLine(), it.getColumn())
         } else {
             Ok(res)
+        }
+    }
+}
+
+fun <T> Parser<T>.full(): Parser<T> {
+    return parser {
+        val res = this(it)
+        if (res is Error) {
+            res
+        } else {
+            if (it.eof()) {
+                Ok(res.unwrap())
+            } else {
+                SimpleParseError("Can't parse all input", it.getLine(), it.getColumn())
+            }
         }
     }
 }

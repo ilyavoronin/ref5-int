@@ -1,0 +1,8 @@
+Go {
+    = <Print 'Enter function name and args:'> <Run <Card>>;
+}
+
+Run {
+  'exit' = ;
+  s1 e.2 = <Print <Mu s1 e.2>> <Print 'Enter function name:'> <Run <Card> >;
+}

@@ -1,6 +1,10 @@
 package refal5.tree
 
-interface RNode
+interface RNode {
+    fun nodeToString(): String {
+        return this.toString()
+    }
+}
 
 interface RExpr: RNode
 
@@ -16,19 +20,43 @@ data class RMultExpr(val terms: List<RTerm>): RExpr {
             return this
         }
     }
+
+    override fun nodeToString(): String {
+        return terms.joinToString(separator = " ") { it.nodeToString() }
+    }
 }
 
-data class RBraced(val expr: RExpr): RTerm
+data class RBraced(val expr: RExpr): RTerm {
+    override fun nodeToString(): String {
+        return "( $expr )"
+    }
+}
 
 interface RSymb: RTerm
 
-data class RIdent(val str: String): RSymb, RPatternElem
+data class RIdent(val str: String): RSymb, RPatternElem {
+    override fun nodeToString(): String {
+        return str
+    }
+}
 
-data class RString(val str: String): RSymb, RPatternElem
+data class RString(val str: String): RSymb, RPatternElem {
+    override fun nodeToString(): String {
+        return "'$str'"
+    }
+}
 
-data class RNum(val str: String): RSymb, RPatternElem
+data class RNum(val str: String): RSymb, RPatternElem {
+    override fun nodeToString(): String {
+        return str
+    }
+}
 
-data class RFloat(val str: String): RSymb, RPatternElem
+data class RFloat(val str: String): RSymb, RPatternElem {
+    override fun nodeToString(): String {
+        return str
+    }
+}
 
 data class RFCall(val fname: String, val exp: RExpr): RSymb
 

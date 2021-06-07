@@ -242,7 +242,7 @@ class Refal5interpreter {
                 is RNum -> IntSuccess(node)
                 is RFloat -> IntSuccess(node)
                 is RMultExpr -> {
-                    val evalExps = node.terms.map { evalInner(it, funcs) }.flatMap {
+                    val evalExps = node.terms.map { evalInner(it, funcs).also { if (it !is IntSuccess) return it } }.flatMap {
                         if (it is IntSuccess) {
                             when (it.res) {
                                 is RBraced -> listOf(it.res)
@@ -268,22 +268,7 @@ class Refal5interpreter {
 
                 is RFCall -> {
                     val fname = node.fname
-                    if (!funcs.containsKey(fname) && !ourBuildInFunc.containsKey(fname)) {
-                        IntEvalError("No such func: $fname")
-                    } else {
-                        val evalExpr = evalInner(node.exp, funcs)
-
-                        if (evalExpr is IntSuccess) {
-                            val func = funcs[fname]
-                            if (func != null) {
-                                evalFunc(func, evalExpr.res, funcs)
-                            } else {
-                                ourBuildInFunc[fname]!!.eval(evalExpr.res, funcs)
-                            }
-                        } else {
-                            evalExpr
-                        }
-                    }
+                    callFunction(fname, funcs, node.exp)
                 }
 
                 else -> throw IllegalStateException("No rule to process node ${node}")
@@ -296,6 +281,25 @@ class Refal5interpreter {
                 RMultPattern(this.terms.map { it.toPattern() as RPatternTerm })
             } else {
                 this as RPattern
+            }
+        }
+
+        private fun callFunction(fname: String, funcs: Map<String, RFunc>, exp: RExpr): InterpResult {
+           return if (!funcs.containsKey(fname) && !ourBuildInFunc.containsKey(fname)) {
+                IntEvalError("No such func: $fname")
+            } else {
+                val evalExpr = evalInner(exp, funcs)
+
+                if (evalExpr is IntSuccess) {
+                    val func = funcs[fname]
+                    if (func != null) {
+                        evalFunc(func, evalExpr.res, funcs)
+                    } else {
+                        ourBuildInFunc[fname]!!.eval(evalExpr.res, funcs)
+                    }
+                } else {
+                    evalExpr
+                }
             }
         }
 
@@ -388,7 +392,7 @@ class Refal5interpreter {
             override fun eval(expr: RExpr, funcs: Map<String, RFunc>): InterpResult {
                 val res = readLine() ?: return IntEvalError("Card failed. Failed to read line")
 
-                val parsed = ref5_expr(Input(res))
+                val parsed = ref5_expr.full()(Input(res))
                 if (parsed is ParseError) {
                     return IntEvalError("Card failed. Not correct expression: $parsed")
                 }
@@ -399,7 +403,7 @@ class Refal5interpreter {
 
         private val output = object : BuildInFunc {
             override fun eval(expr: RExpr, funcs: Map<String, RFunc>): InterpResult {
-                println(expr.toString())
+                println(expr.nodeToString())
 
                 return IntSuccess(RMultExpr())
             }
@@ -425,8 +429,7 @@ class Refal5interpreter {
                 } else {
                     RMultExpr()
                 }
-                val func = funcs[nameExpr.str] ?: return IntEvalError("Mu: function with name ${nameExpr.str} doesn't exist")
-                return evalFunc(func, args, funcs)
+                return callFunction(nameExpr.str, funcs, args)
             }
         }
 
