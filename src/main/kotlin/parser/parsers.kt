@@ -135,15 +135,17 @@ fun symb(name: String, cond: (Char) -> Boolean): Parser<Char> {
 fun <T> Parser<T>.many(atLeastOne: Boolean, name: String): Parser<List<T>> {
     return parser {
         val res = mutableListOf<T>()
+        var lastError: ParseError<T>? = null
         while (true) {
             val currRes = this.parse(it)
             if (currRes is ParseError) {
+                lastError = currRes
                 break
             }
             res.add(currRes.unwrap())
         }
         if (atLeastOne && res.isEmpty()) {
-            SimpleParseError("Should parse at least one $name", it.getLine(), it.getColumn())
+            SimpleParseError("Should parse at least one $name caused by [$lastError]", it.getLine(), it.getColumn())
         } else {
             Ok(res)
         }
@@ -166,7 +168,7 @@ fun <T> Parser<T>.untilEof(atLeastOne: Boolean, name: String): Parser<List<T>> {
             }
         }
         if (atLeastOne && res.isEmpty()) {
-            SimpleParseError("Should parse at least one $name", it.getLine(), it.getColumn())
+            SimpleParseError("Empty file", it.getLine(), it.getColumn())
         } else {
             Ok(res)
         }
