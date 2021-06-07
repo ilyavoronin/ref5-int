@@ -119,4 +119,55 @@ class Ref5IntTests {
             res
         )
     }
+
+    @Test
+    fun fibonacciTest() {
+        val case = """
+            Go {
+                = <Fib 3> <Fib 4> <Fib 6> <Fib 17>;
+            }
+            
+            Fib {
+                0 = 1 ;
+                1 = 1 ;
+                s.Num = <+ <Fib <- s.Num 1>> <Fib <- s.Num 2> > > ;
+            }
+        """.trimIndent()
+
+        val res = (Refal5interpreter().eval(case) as IntSuccess).res
+
+        assertEquals(
+            RMultExpr(RNum("3"), RNum("5"), RNum("13"), RNum("2584")),
+            res
+        )
+    }
+
+    @Test
+    fun testMu() {
+        val case = """
+            Go {
+                = <Call 'F1' 1> <Call 'F1' 2> <Call 'F2'> ;
+            }
+            
+            Call {
+                 s.1 e.1 = <Mu s.1 e.1> ;
+            }
+            
+            F1 {
+                 1 = 'Hello';
+                 2 = 'World';
+            }
+            
+            F2 {
+                 = AAAAAAAA ;
+            }
+        """.trimIndent()
+
+        val res = (Refal5interpreter().eval(case) as IntSuccess).res
+
+        assertEquals(
+            RMultExpr(RString("Hello"), RString("World"), RIdent("AAAAAAAA")),
+            res
+        )
+    }
 }
