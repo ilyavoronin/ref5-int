@@ -8,6 +8,14 @@ interface RTerm: RExpr, RNode
 
 data class RMultExpr(val terms: List<RTerm>): RExpr {
     constructor(vararg terms: RTerm): this(terms.toList())
+
+    fun simplify(): RExpr {
+        if (terms.size == 1) {
+            return terms.first()
+        } else {
+            return this
+        }
+    }
 }
 
 data class RBraced(val expr: RExpr): RTerm
@@ -39,6 +47,14 @@ data class RTvar(val str: String): RPatternElem, RSymb
 
 data class RMultPattern(val patTerms: List<RPatternTerm>) : RPattern {
     constructor(vararg patTerms: RPatternTerm) : this(patTerms.toList())
+
+    fun simplify(): RPattern {
+        if (patTerms.size == 1) {
+            return patTerms.first()
+        } else {
+            return this
+        }
+    }
 }
 
 

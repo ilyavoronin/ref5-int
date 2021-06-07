@@ -45,6 +45,32 @@ class Refal5interpreter {
     }
 
     private fun tryMatch(exp: RExpr, pattern: RPattern): Map<RSymb, RExpr>? {
+        fun matchMutlPatternWithSingleExpr(pattern: RMultPattern, expr: RExpr): Map<RSymb, RExpr>? {
+            if (pattern.patTerms.isEmpty()) {
+                return null
+            }
+            val evars = pattern.patTerms.map {it as? REvar}.filterNotNull()
+            val res = mutableMapOf<RSymb, RExpr>()
+            if (evars.size == pattern.patTerms.size) {
+                evars.dropLast(1).forEach {
+                    res[it] = RMultExpr()
+                }
+                res[evars.last()] = expr
+                return res
+            }
+            if (evars.size + 1 == pattern.patTerms.size) {
+                val notEvar = pattern.patTerms.find {it !is REvar}!!
+                val res1 = tryMatch(expr, notEvar) ?: return null
+                res.putAll(res1)
+                evars.forEach {
+                    res[it] = RMultExpr()
+                }
+                return res
+            }
+
+            return null
+        }
+
         val res: Map<RSymb, RExpr>? = when (exp) {
             is RIdent -> {
                 when(pattern) {
@@ -52,6 +78,7 @@ class Refal5interpreter {
                     is REvar -> mapOf(Pair(pattern, exp))
                     is RTvar -> mapOf(Pair(pattern, exp))
                     is RSvar -> mapOf(Pair(pattern, exp))
+                    is RMultPattern -> matchMutlPatternWithSingleExpr(pattern, exp)
                     else -> null
                 }
             }
@@ -61,6 +88,7 @@ class Refal5interpreter {
                     is REvar -> mapOf(Pair(pattern, exp))
                     is RTvar -> mapOf(Pair(pattern, exp))
                     is RSvar -> mapOf(Pair(pattern, exp))
+                    is RMultPattern -> matchMutlPatternWithSingleExpr(pattern, exp)
                     else -> null
                 }
             }
@@ -70,15 +98,17 @@ class Refal5interpreter {
                     is REvar -> mapOf(Pair(pattern, exp))
                     is RTvar -> mapOf(Pair(pattern, exp))
                     is RSvar -> mapOf(Pair(pattern, exp))
+                    is RMultPattern -> matchMutlPatternWithSingleExpr(pattern, exp)
                     else -> null
                 }
             }
             is RFloat -> {
                 when(pattern) {
-                    is RString -> if (exp.str == pattern.str) mapOf() else null
+                    is RFloat -> if (exp.str == pattern.str) mapOf() else null
                     is REvar -> mapOf(Pair(pattern, exp))
                     is RTvar -> mapOf(Pair(pattern, exp))
                     is RSvar -> mapOf(Pair(pattern, exp))
+                    is RMultPattern -> matchMutlPatternWithSingleExpr(pattern, exp)
                     else -> null
                 }
             }
@@ -87,6 +117,7 @@ class Refal5interpreter {
                     is RPatternBraced -> tryMatch(exp.expr, pattern.pattern)
                     is RTvar -> mapOf(Pair(pattern, exp))
                     is REvar -> mapOf(Pair(pattern, exp))
+                    is RMultPattern -> matchMutlPatternWithSingleExpr(pattern, exp)
                     else -> null
                 }
             }
@@ -96,7 +127,8 @@ class Refal5interpreter {
                         if (pattern.patTerms.isEmpty()) {
                             if (exp.terms.isEmpty()) {
                                 mapOf()
-                            } else {
+                            }
+                            else {
                                 null
                             }
                         } else {
@@ -106,13 +138,17 @@ class Refal5interpreter {
                                 var iexp = 0
                                 var res: Map<RSymb, RExpr>? = null
                                 do {
-                                    val currMap = mapOf<RSymb, RExpr>(Pair(firstPattern, RMultExpr(currTerms)))
+                                    val currMap = mapOf<RSymb, RExpr>(Pair(firstPattern, RMultExpr(currTerms).simplify()))
                                     val restMap =
-                                        tryMatch(RMultExpr(exp.terms.drop(1)), apply(currMap, RMultPattern(pattern.patTerms.drop(1))))
+                                        tryMatch(RMultExpr(exp.terms.drop(currTerms.size)).simplify(), apply(currMap, RMultPattern(pattern.patTerms.drop(1)).simplify()))
                                     if (restMap != null) {
                                         val res1 = restMap.toMutableMap()
                                         res1.putAll(currMap)
                                         res = res1
+                                        break
+                                    }
+                                    if (iexp < exp.terms.size) {
+                                        currTerms.add(exp.terms[iexp])
                                     }
                                 } while (iexp++ < exp.terms.size)
                                 res
@@ -120,7 +156,7 @@ class Refal5interpreter {
                                 run<Refal5interpreter, Map<RSymb, RExpr>?> {
                                     val resMap = tryMatch(exp.terms.first(), firstPattern) ?: return@run null
                                     val restMap =
-                                        tryMatch(RMultExpr(exp.terms.drop(1)), apply(resMap, RMultPattern(pattern.patTerms.drop(1)))) ?: return@run null
+                                        tryMatch(RMultExpr(exp.terms.drop(1)).simplify(), apply(resMap, RMultPattern(pattern.patTerms.drop(1)).simplify())) ?: return@run null
                                     val res = restMap.toMutableMap()
                                     res.putAll(resMap)
                                     res
@@ -139,12 +175,13 @@ class Refal5interpreter {
 
     private fun apply(values: Map<RSymb, RExpr>, pattern: RPattern): RPattern {
         val res = when (pattern) {
-            is REvar -> if (values.containsKey(pattern)) values[pattern]!! as RPattern else pattern
-            is RSvar -> if (values.containsKey(pattern)) values[pattern]!! as RPattern else pattern
-            is RTvar -> if (values.containsKey(pattern)) values[pattern]!! as RPattern else pattern
+            is REvar -> if (values.containsKey(pattern)) values[pattern]!!.toPattern() else pattern
+            is RSvar -> if (values.containsKey(pattern)) values[pattern]!!.toPattern() else pattern
+            is RTvar -> if (values.containsKey(pattern)) values[pattern]!!.toPattern() else pattern
+            is RPatternBraced -> RPatternBraced(apply(values, pattern.pattern))
             is RMultPattern -> {
                 val nterms = pattern.patTerms.map {apply(values, it)}.flatMap { if (it is RMultPattern) it.patTerms else listOf(it as RPatternTerm) }
-                return RMultPattern(nterms)
+                return RMultPattern(nterms).simplify()
             }
             else -> pattern
         }
@@ -162,6 +199,13 @@ class Refal5interpreter {
             is REvar -> if (values.containsKey(expr)) ApplyRes.ApplySucc(values[expr]!!) else ApplyRes.ApplyError("No matching for $expr")
             is RSvar -> if (values.containsKey(expr)) ApplyRes.ApplySucc(values[expr]!!) else ApplyRes.ApplyError("No matching for $expr")
             is RTvar -> if (values.containsKey(expr)) ApplyRes.ApplySucc(values[expr]!!) else ApplyRes.ApplyError("No matching for $expr")
+            is RBraced -> {
+                val res = apply(values, expr.expr)
+                when (res) {
+                    is ApplyRes.ApplySucc -> ApplyRes.ApplySucc(RBraced(res.expr))
+                    is ApplyRes.ApplyError -> res
+                }
+            }
             is RMultExpr -> {
                 val nterms = expr.terms
                     .map {apply(values, it)}.flatMap {
@@ -169,7 +213,13 @@ class Refal5interpreter {
                         val nexpr = (it as ApplyRes.ApplySucc).expr
                         if (nexpr is RMultExpr) nexpr.terms else listOf(nexpr as RTerm)
                     }
-                ApplyRes.ApplySucc(RMultExpr(nterms))
+                ApplyRes.ApplySucc(RMultExpr(nterms).simplify())
+            }
+            is RFCall -> {
+                when (val fres = apply(values, expr.exp)) {
+                    is ApplyRes.ApplySucc -> ApplyRes.ApplySucc(RFCall(expr.fname, fres.expr))
+                    is ApplyRes.ApplyError -> fres
+                }
             }
             else -> ApplyRes.ApplySucc(expr)
         }
@@ -195,7 +245,7 @@ class Refal5interpreter {
                         return it
                     }
                 }
-                IntSuccess(RMultExpr(evalExps))
+                IntSuccess(RMultExpr(evalExps).simplify())
             }
 
             is RBraced -> {
@@ -213,12 +263,25 @@ class Refal5interpreter {
                     IntEvalError("No such func: $fname")
                 } else {
                     val func = funcs[fname]!!
-                    evalFunc(func, node.exp, state, funcs)
+                    val evalExpr = evalInner(node.exp, state, funcs)
+                    if (evalExpr is IntSuccess) {
+                        evalFunc(func, evalExpr.res , state, funcs)
+                    } else {
+                        evalExpr
+                    }
                 }
             }
 
             else -> throw IllegalStateException("No rule to process node ${node}")
         }
         return res
+    }
+
+    private fun RExpr.toPattern(): RPattern {
+        return if (this is RMultExpr) {
+            RMultPattern(this.terms.map {it.toPattern() as RPatternTerm})
+        } else {
+            this as RPattern
+        }
     }
 }
