@@ -1,12 +1,14 @@
 package refal5.tree
 
-interface RExpr
+interface RNode
+
+interface RExpr: RNode
+
+interface RTerm: RExpr, RNode
 
 data class RMultExpr(val terms: List<RTerm>): RExpr {
     constructor(vararg terms: RTerm): this(terms.toList())
 }
-
-interface RTerm: RExpr
 
 data class RBraced(val expr: RExpr): RTerm
 
@@ -23,7 +25,7 @@ data class RFloat(val str: String): RSymb, RPatternElem
 data class RFCall(val fname: String, val exp: RExpr): RSymb
 
 
-interface RPattern
+interface RPattern: RNode
 
 interface RPatternTerm: RPattern
 
@@ -40,12 +42,12 @@ data class RMultPattern(val patTerms: List<RPatternTerm>) : RPattern {
 }
 
 
-data class RPatMatching(val expr: RExpr, val pattern: RPattern)
+data class RPatMatching(val expr: RExpr, val pattern: RPattern): RNode
 
-data class RFunc(val name: String, val patternMatches: List<RPatMatching>) {
+data class RFunc(val name: String, val patternMatches: List<RPatMatching>): RNode {
     constructor(name: String, vararg patternMatches: RPatMatching) : this(name, patternMatches.toList())
 }
 
-data class RProgram(val funcs: List<RFunc>) {
+data class RProgram(val funcs: List<RFunc>): RNode {
     constructor(vararg funcs: RFunc): this(funcs.toList())
 }
