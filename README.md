@@ -17,6 +17,7 @@ java -jar ref5.jar <path-to-file-with-program>
  * `rev.ref5` - reverses given expression
  * `pal.ref5` - checks if the given expression is palindrome
  * `seq.ref5` - checks if the given sequence of A and B is a correct braces sequence.
+ * `prime.ref5` - prints all prime numbers until the given number
 
 ### Tests
 ```shell
