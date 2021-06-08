@@ -169,4 +169,26 @@ class Ref5IntTests {
             res
         )
     }
+
+    @Test
+    fun testCorrectBraces() {
+        val case = """
+            Go {
+                = <DumbCheckBr  A A B A A B A B B A A B B B A B A A B B > <DumbCheckBr  A A B B B A>;
+            }
+            
+            DumbCheckBr {
+                      = True;
+                  A e1 B e2 & <DumbCheckBr e1> : True & <DumbCheckBr e2> : True = True;
+                  e.3 = False;
+            }
+        """.trimIndent()
+
+        val res = (Refal5interpreter().eval(case) as IntSuccess).res
+
+        assertEquals(
+            RMultExpr(RIdent("True"), RIdent("False")),
+            res
+        )
+    }
 }

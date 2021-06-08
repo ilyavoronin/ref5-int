@@ -86,7 +86,7 @@ data class RMultPattern(val patTerms: List<RPatternTerm>) : RPattern {
 }
 
 
-data class RPatMatching(val expr: RExpr, val pattern: RPattern): RNode
+data class RPatMatching(val expr: RExpr, val pattern: RPattern, val whereBlocks: List<RPatMatching> = emptyList()): RNode
 
 data class RFunc(val name: String, val patternMatches: List<RPatMatching>): RNode {
     constructor(name: String, vararg patternMatches: RPatMatching) : this(name, patternMatches.toList())

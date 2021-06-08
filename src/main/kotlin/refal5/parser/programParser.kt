@@ -7,12 +7,14 @@ val ref5_func_match = combine("pattern match") {
     spaces()[it]
     val pattern = ref5_pattern[it]
     spaces()[it]
+    val whereMatches = ((const("&") * const(",")) - ref5_pat_matching).many(false, "where struct")[it]
+    spaces()[it]
     const("=")[it]
     spaces()[it]
     val exp = ref5_expr[it]
     spaces()[it]
     const(";")[it]
-    Ok(RPatMatching(exp, pattern))
+    Ok(RPatMatching(exp, pattern, whereMatches))
 }
 
 val ref5_fun = combine("function") {

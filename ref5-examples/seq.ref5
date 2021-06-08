@@ -1,0 +1,14 @@
+Go {
+    = <Print 'Enter a sequence of "A" and "B":'> <Run <Card>>;
+}
+
+Run {
+  'exit' = ;
+  e1 = <Print <CheckBr e1>  > <Print 'Enter expression:'> <Run <Card> >;
+}
+
+CheckBr {
+          = True;
+      A e1 B e2 & <CheckBr e1> : True & <CheckBr e2> : True = True;
+      e.3 = False;
+}

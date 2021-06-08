@@ -34,9 +34,9 @@ class Refal5interpreter {
 
         private fun evalFunc(func: RFunc, arg: RExpr, funcs: Map<String, RFunc>): InterpResult {
             func.patternMatches.forEach { pat ->
-                val res = tryMatch(arg, pat.pattern)
+                val res = tryMatch2(arg, pat.pattern, pat.whereBlocks, funcs)
                 if (res != null) {
-                    val applyRes = apply(res, pat.expr)
+                    val applyRes = apply(res, pat.expr, true)
                     return@evalFunc when (applyRes) {
                         is ApplyRes.ApplyError -> IntEvalError(applyRes.msg)
                         is ApplyRes.ApplySucc -> evalInner(applyRes.expr, funcs)
@@ -46,134 +46,185 @@ class Refal5interpreter {
             return IntEvalError("No suitable pattern in function ${func.name} for expression $arg")
         }
 
-        private fun tryMatch(exp: RExpr, pattern: RPattern): Map<RSymb, RExpr>? {
-            fun matchMutlPatternWithSingleExpr(pattern: RMultPattern, expr: RExpr): Map<RSymb, RExpr>? {
-                if (pattern.patTerms.isEmpty()) {
-                    return null
-                }
-                val evars = pattern.patTerms.map { it as? REvar }.filterNotNull()
-                val res = mutableMapOf<RSymb, RExpr>()
-                if (evars.size == pattern.patTerms.size) {
-                    evars.dropLast(1).forEach {
-                        res[it] = RMultExpr()
-                    }
-                    res[evars.last()] = expr
-                    return res
-                }
-                if (evars.size + 1 == pattern.patTerms.size) {
-                    val notEvar = pattern.patTerms.find { it !is REvar }!!
-                    val res1 = tryMatch(expr, notEvar) ?: return null
-                    res.putAll(res1)
-                    evars.forEach {
-                        res[it] = RMultExpr()
-                    }
-                    return res
-                }
 
-                return null
+        private fun tryMatch2(exp: RExpr, pattern: RPattern, whereStructs: List<RPatMatching>, funcs: Map<String, RFunc>): Map<RSymb, RExpr>? {
+
+
+            fun applyToWhere(mapping: Map<RSymb, RExpr>, whereStructs: List<RPatMatching>): List<RPatMatching>? {
+                val res = whereStructs.map {
+                    when (val newWithExp = apply(mapping, it.expr, false)) {
+                        is ApplyRes.ApplySucc -> RPatMatching(newWithExp.expr, apply(mapping, it.pattern))
+                        else -> null
+                    }
+                }
+                return if (res.any {it == null}) {
+                    null
+                } else {
+                    res.filterNotNull()
+                }
             }
 
-            val res: Map<RSymb, RExpr>? = when (exp) {
-                is RIdent -> {
-                    when (pattern) {
-                        is RIdent -> if (exp.str == pattern.str) mapOf() else null
-                        is REvar -> mapOf(Pair(pattern, exp))
-                        is RTvar -> mapOf(Pair(pattern, exp))
-                        is RSvar -> mapOf(Pair(pattern, exp))
-                        is RMultPattern -> matchMutlPatternWithSingleExpr(pattern, exp)
-                        else -> null
+            fun Map<RSymb, RExpr>?.applyWith(): Map<RSymb, RExpr>? {
+                if (this == null) {
+                    return null
+                }
+                if (whereStructs.isEmpty()) {
+                    return this
+                }
+                return when (val res = apply(this, whereStructs.first().expr, true)) {
+                    is ApplyRes.ApplySucc -> {
+                        when (val evalRes = evalInner(res.expr, funcs)) {
+                            is IntSuccess -> {
+                                applyToWhere(this@applyWith ,whereStructs.drop(1)) ?.let { nwhere ->
+                                    tryMatch2(
+                                        evalRes.res,
+                                        whereStructs.first().pattern,
+                                        nwhere,
+                                        funcs
+                                    )?.toMutableMap()?.apply {
+                                        putAll(this@applyWith)
+                                    }
+                                }
+                            }
+                            else -> throw IllegalStateException(evalRes.toString())
+                        }
                     }
+                    is ApplyRes.ApplyError -> null
+                }
+            }
+
+            fun emptyMap(): Map<RSymb, RExpr>? {
+                return mapOf<RSymb, RExpr>()
+            }
+
+            fun mapOf(vararg vals: Pair<RSymb, RExpr>): Map<RSymb, RExpr> {
+                return kotlin.collections.mapOf(*vals)
+            }
+
+            val res: Map<RSymb, RExpr>? = when(pattern) {
+                is RIdent -> {
+                    when (exp) {
+                        is RIdent -> if (exp.str == pattern.str) emptyMap() else null
+                        else -> null
+                    }.applyWith()
                 }
                 is RNum -> {
-                    when (pattern) {
-                        is RNum -> if (exp.str == pattern.str) mapOf() else null
-                        is REvar -> mapOf(Pair(pattern, exp))
-                        is RTvar -> mapOf(Pair(pattern, exp))
-                        is RSvar -> mapOf(Pair(pattern, exp))
-                        is RMultPattern -> matchMutlPatternWithSingleExpr(pattern, exp)
+                    when (exp) {
+                        is RNum -> if (exp.str == pattern.str)  emptyMap() else null
                         else -> null
-                    }
-                }
-                is RString -> {
-                    when (pattern) {
-                        is RString -> if (exp.str == pattern.str) mapOf() else null
-                        is REvar -> mapOf(Pair(pattern, exp))
-                        is RTvar -> mapOf(Pair(pattern, exp))
-                        is RSvar -> mapOf(Pair(pattern, exp))
-                        is RMultPattern -> matchMutlPatternWithSingleExpr(pattern, exp)
-                        else -> null
-                    }
+                    }.applyWith()
                 }
                 is RFloat -> {
-                    when (pattern) {
-                        is RFloat -> if (exp.str == pattern.str) mapOf() else null
-                        is REvar -> mapOf(Pair(pattern, exp))
-                        is RTvar -> mapOf(Pair(pattern, exp))
-                        is RSvar -> mapOf(Pair(pattern, exp))
-                        is RMultPattern -> matchMutlPatternWithSingleExpr(pattern, exp)
+                    when (exp) {
+                        is RFloat -> if (exp.str == pattern.str) emptyMap() else null
                         else -> null
-                    }
+                    }.applyWith()
                 }
-                is RBraced -> {
-                    when (pattern) {
-                        is RPatternBraced -> tryMatch(exp.expr, pattern.pattern)
-                        is RTvar -> mapOf(Pair(pattern, exp))
-                        is REvar -> mapOf(Pair(pattern, exp))
-                        is RMultPattern -> matchMutlPatternWithSingleExpr(pattern, exp)
+                is RString -> {
+                    when (exp) {
+                        is RString -> if (exp.str == pattern.str) emptyMap() else null
                         else -> null
-                    }
+                    }.applyWith()
                 }
-                is RMultExpr -> {
-                    when (pattern) {
-                        is RMultPattern -> {
-                            if (pattern.patTerms.isEmpty()) {
-                                if (exp.terms.isEmpty()) {
-                                    mapOf()
-                                } else {
-                                    null
-                                }
-                            } else {
-                                val firstPattern = pattern.patTerms.first()
-                                if (firstPattern is REvar) {
-                                    val currTerms = mutableListOf<RTerm>()
-                                    var iexp = 0
-                                    var res: Map<RSymb, RExpr>? = null
-                                    do {
-                                        val currMap =
-                                            mapOf<RSymb, RExpr>(Pair(firstPattern, RMultExpr(currTerms).simplify()))
-                                        val restMap =
-                                            tryMatch(
-                                                RMultExpr(exp.terms.drop(currTerms.size)).simplify(),
-                                                apply(currMap, RMultPattern(pattern.patTerms.drop(1)).simplify())
-                                            )
-                                        if (restMap != null) {
-                                            val res1 = restMap.toMutableMap()
-                                            res1.putAll(currMap)
-                                            res = res1
-                                            break
-                                        }
-                                        if (iexp < exp.terms.size) {
-                                            currTerms.add(exp.terms[iexp])
-                                        }
-                                    } while (iexp++ < exp.terms.size)
-                                    res
-                                } else if (exp.terms.isNotEmpty()) {
-                                    run {
-                                        val resMap = tryMatch(exp.terms.first(), firstPattern) ?: return@run null
-                                        val restMap =
-                                            tryMatch(
-                                                RMultExpr(exp.terms.drop(1)).simplify(),
-                                                apply(resMap, RMultPattern(pattern.patTerms.drop(1)).simplify())
-                                            ) ?: return@run null
-                                        val res = restMap.toMutableMap()
-                                        res.putAll(resMap)
-                                        res
+                is RSvar -> {
+                    when  {
+                        (exp is RFloat) || (exp is RString) || (exp is RIdent) || (exp is RNum) -> mapOf(Pair(pattern, exp))
+                        else -> null
+                    }.applyWith()
+                }
+                is RTvar -> {
+                    when {
+                        (exp is RBraced) || (exp is RFloat) || (exp is RString) || (exp is RIdent) || (exp is RNum) -> mapOf(Pair(pattern, exp))
+                        else -> null
+                    }.applyWith()
+                }
+
+                is REvar -> {
+                    mapOf(Pair(pattern, exp)).applyWith()
+                }
+
+                is RPatternBraced -> {
+                    when (exp) {
+                        is RBraced -> tryMatch2(exp.expr, pattern.pattern, emptyList(), funcs)
+                        else -> null
+                    }.applyWith()
+                }
+
+                is RMultPattern -> {
+                    val exps = when (exp) {
+                        is RMultExpr -> exp.terms
+                        else -> listOf(exp as RTerm)
+                    }
+                    if (pattern.patTerms.isEmpty()) {
+                        if (exps.isEmpty()) {
+                            mapOf()
+                        } else {
+                            null
+                        }.applyWith()
+                    } else {
+                        val firstPattern = pattern.patTerms.first()
+                        if (firstPattern is REvar) {
+                            val currTerms = mutableListOf<RTerm>()
+                            var iexp = 0
+                            var res: Map<RSymb, RExpr>? = null
+                            do {
+                                val currMap =
+                                    mapOf<RSymb, RExpr>(Pair(firstPattern, RMultExpr(currTerms).simplify()))
+
+                                var successfulApp = true
+                                val newWhereStructs = whereStructs.map {
+                                    when (val newWithExp = apply(currMap, it.expr, false)) {
+                                        is ApplyRes.ApplySucc -> RPatMatching(newWithExp.expr, apply(currMap, it.pattern))
+                                        else -> {successfulApp = false; null}
                                     }
-                                } else null
+                                }.filterNotNull()
+                                if (!successfulApp) {
+                                    continue
+                                }
+                                val restMap =
+                                    tryMatch2(
+                                        RMultExpr(exps.drop(currTerms.size)).simplify(),
+                                        apply(currMap, RMultPattern(pattern.patTerms.drop(1)).simplify()),
+                                        newWhereStructs,
+                                        funcs
+                                    )
+                                if (restMap != null) {
+                                    val res1 = restMap.toMutableMap()
+                                    res1.putAll(currMap)
+                                    res = res1
+                                    break
+                                }
+                                if (iexp < exps.size) {
+                                    currTerms.add(exps[iexp])
+                                }
+                            } while (iexp++ < exps.size)
+                            res
+                        } else if (exps.isNotEmpty()) {
+                            run {
+                                val resMap = tryMatch2(exps.first(), firstPattern, emptyList(), funcs) ?: return@run null
+                                var successfulApp = true
+                                val newWithStructs = whereStructs.map {
+                                    when (val newWithExp = apply(resMap, it.expr, false)) {
+                                        is ApplyRes.ApplySucc -> RPatMatching(newWithExp.expr, apply(resMap, it.pattern))
+                                        else -> {successfulApp = false; null}
+                                    }
+                                }.filterNotNull()
+                                if (!successfulApp) {
+                                    null
+                                } else {
+                                    val restMap =
+                                        tryMatch2(
+                                            RMultExpr(exps.drop(1)).simplify(),
+                                            apply(resMap, RMultPattern(pattern.patTerms.drop(1)).simplify()),
+                                            newWithStructs,
+                                            funcs
+                                        ) ?: return@run null
+                                    val res = restMap.toMutableMap()
+                                    res.putAll(resMap)
+                                    res
+                                }
                             }
-                        }
-                        is REvar -> mapOf(Pair(pattern, exp))
-                        else -> null
+                        } else null
                     }
                 }
                 else -> null
@@ -203,13 +254,13 @@ class Refal5interpreter {
         }
 
 
-        private fun apply(values: Map<RSymb, RExpr>, expr: RExpr): ApplyRes {
+        private fun apply(values: Map<RSymb, RExpr>, expr: RExpr, fillAll: Boolean): ApplyRes {
             val res = when (expr) {
-                is REvar -> if (values.containsKey(expr)) ApplyRes.ApplySucc(values[expr]!!) else ApplyRes.ApplyError("No matching for $expr")
-                is RSvar -> if (values.containsKey(expr)) ApplyRes.ApplySucc(values[expr]!!) else ApplyRes.ApplyError("No matching for $expr")
-                is RTvar -> if (values.containsKey(expr)) ApplyRes.ApplySucc(values[expr]!!) else ApplyRes.ApplyError("No matching for $expr")
+                is REvar -> if (values.containsKey(expr)) ApplyRes.ApplySucc(values[expr]!!) else if (!fillAll) ApplyRes.ApplySucc(expr) else ApplyRes.ApplyError("No matching for $expr")
+                is RSvar -> if (values.containsKey(expr)) ApplyRes.ApplySucc(values[expr]!!) else if (!fillAll) ApplyRes.ApplySucc(expr) else ApplyRes.ApplyError("No matching for $expr")
+                is RTvar -> if (values.containsKey(expr)) ApplyRes.ApplySucc(values[expr]!!) else if (!fillAll) ApplyRes.ApplySucc(expr) else ApplyRes.ApplyError("No matching for $expr")
                 is RBraced -> {
-                    val res = apply(values, expr.expr)
+                    val res = apply(values, expr.expr, fillAll)
                     when (res) {
                         is ApplyRes.ApplySucc -> ApplyRes.ApplySucc(RBraced(res.expr))
                         is ApplyRes.ApplyError -> res
@@ -217,7 +268,7 @@ class Refal5interpreter {
                 }
                 is RMultExpr -> {
                     val nterms = expr.terms
-                        .map { apply(values, it) }.flatMap {
+                        .map { apply(values, it, fillAll) }.flatMap {
                             if (it is ApplyRes.ApplyError) return@apply it
                             val nexpr = (it as ApplyRes.ApplySucc).expr
                             if (nexpr is RMultExpr) nexpr.terms else listOf(nexpr as RTerm)
@@ -225,7 +276,7 @@ class Refal5interpreter {
                     ApplyRes.ApplySucc(RMultExpr(nterms).simplify())
                 }
                 is RFCall -> {
-                    when (val fres = apply(values, expr.exp)) {
+                    when (val fres = apply(values, expr.exp, fillAll)) {
                         is ApplyRes.ApplySucc -> ApplyRes.ApplySucc(RFCall(expr.fname, fres.expr))
                         is ApplyRes.ApplyError -> fres
                     }
@@ -279,7 +330,9 @@ class Refal5interpreter {
         private fun RExpr.toPattern(): RPattern {
             return if (this is RMultExpr) {
                 RMultPattern(this.terms.map { it.toPattern() as RPatternTerm })
-            } else {
+            } else if (this is RBraced) {
+                RPatternBraced(this.expr.toPattern())
+            }else {
                 this as RPattern
             }
         }
