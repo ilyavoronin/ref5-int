@@ -1,10 +1,7 @@
 import org.junit.jupiter.api.Test
 import refal5.interp.IntSuccess
 import refal5.interp.Refal5interpreter
-import refal5.tree.RIdent
-import refal5.tree.RMultExpr
-import refal5.tree.RNum
-import refal5.tree.RString
+import refal5.tree.*
 import kotlin.test.assertEquals
 
 class Ref5IntTests {
@@ -32,7 +29,7 @@ class Ref5IntTests {
     fun palindromeTest() {
         val case = """
             Go {
-                = <Pal A> <Pal 123 456 123> <Pal A B A C A B A> <Pal A B A B B A> <Pal Q W E E W Q>;
+                = <Pal A> <Pal 123 456 123> <Pal A B A C A B A> <Pal A B A B B A> <Pal Q W E E W Q> <Pal 'abacaba'>;
             }
             Pal { = True;
                  s.1 = True;
@@ -44,7 +41,7 @@ class Ref5IntTests {
         val res = (Refal5interpreter().eval(case) as IntSuccess).res
 
         assertEquals(
-            RMultExpr(RIdent("True"), RIdent("True"), RIdent("True"), RIdent("False"), RIdent("True")),
+            RMultExpr(RIdent("True"), RIdent("True"), RIdent("True"), RIdent("False"), RIdent("True"), RIdent("True")),
             res
         )
     }
@@ -145,7 +142,7 @@ class Ref5IntTests {
     fun testMu() {
         val case = """
             Go {
-                = <Call 'F1' 1> <Call 'F1' 2> <Call 'F2'> ;
+                = <Call F1 1> <Call F1 2> <Call F2> ;
             }
             
             Call {
@@ -188,6 +185,50 @@ class Ref5IntTests {
 
         assertEquals(
             RMultExpr(RIdent("True"), RIdent("False")),
+            res
+        )
+    }
+
+    @Test
+    fun testCannibalesMove() {
+        val case = """
+            
+         Go {
+             = <Try 1 L('MMMCCC')()> <Try 5 R('MC')('MC')>;
+         }
+         Try {
+              * Boat on left bank
+              * MM crossing
+                 1 L ( 'MM' e1 ) ( e2 ) = R(e1)('MM'e2);
+              * CC crossing
+                 2 L(e1'CC')(e2) = R(e1)(e2'CC');
+              * MC crossing
+                 3 L(e1'MC'e2)(e3) = R(e1 e2)('M'e3'C');
+              * M crossing
+                 4 L('M'e1)(e2) = R(e1)('M'e2);
+              * C crossing
+                 5 L(e1'C')(e2) = R(e1)(e2'C');
+              * Boat on right bank
+              * MM crossing
+                 1 R(e1)('MM'e2) = L('MM'e1)(e2);
+              * CC crossing
+                 2 R(e1)(e2'CC') = L(e1'CC')(e2);
+              * MC crossing
+                 3 R(e1)('M'e2'C') = L('M'e1'C')(e2);
+              * M crossing
+                 4 R(e1)('M'e2) = L('M'e1)(e2);
+              * C crossing
+                 5 R(e1)(e2'C') = L(e1'C')(e2);
+              * Otherwise move impossible
+                 s.Mv eS = Imposs;
+          }
+        """.trimIndent()
+
+        val res = (Refal5interpreter().eval(case) as IntSuccess).res
+
+        assertEquals(
+            RMultExpr(RIdent("R"), RBraced(RString("MCCC")), RBraced(RString("MM")),
+                RIdent("L"), RBraced(RString("MCC")), RBraced(RString("M"))),
             res
         )
     }

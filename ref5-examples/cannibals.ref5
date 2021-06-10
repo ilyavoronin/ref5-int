@@ -1,0 +1,94 @@
+  * Missionaries and Cannibals
+  Go { =
+       <Search (0'='L('MMMCCC')())>; }
+   
+  Search {
+  *1. The goal found
+    e1 (s.M'='R()('MMMCCC')) =  
+              <Path e1 (s.M'='R()('MMMCCC'))>;
+  *2. Impossible state. No backup. No solution.
+    (0'='eS) (5'='Imposs) = 
+           <Prout 'The problem has no solution'>;
+  *3. Impossible state. No next move. Back up.
+    e1 (s.Mp'='eS) (5'='Imposs) =  
+                  <Search e1 (s.Mp'='Imposs)>;
+  *4. Impossible state. Do next move.
+    e1 (s.Mp'='eS)(s.M'='Imposs), 
+                       <+ s.M 1>: s.Mn =
+            <Search e1 (s.Mp'='eS)
+                       (s.Mn'='<Move s.Mn eS>)>;
+  *5. Repeated state. Equate to impossible.
+    e1 (s.Mp'='eS) e2 (s.M'='eS) =
+        <Search e1 (s.Mp'='eS) e2 (s.M'='Imposs)>;
+  *6. Down the tree.
+    e1 (s.M'='eS) = 
+         <Search e1 (s.M'='eS) (1'='<Move 1 eS>)>;
+        }
+   
+  * Move
+  Move { eS = <Admiss <Try eS>>; }
+   
+  * Try a move 
+  Try {
+  * Boat on left bank
+  * MM crossing
+     1 L('MM'e1)(e2) = R(e1)('MM'e2);
+  * CC crossing
+     2 L(e1'CC')(e2) = R(e1)(e2'CC');
+  * MC crossing
+     3 L(e1'MC'e2)(e3) = R(e1 e2)('M'e3'C');
+  * M crossing
+     4 L('M'e1)(e2) = R(e1)('M'e2);
+  * C crossing
+     5 L(e1'C')(e2) = R(e1)(e2'C');
+  * Boat on right bank
+  * MM crossing
+     1 R(e1)('MM'e2) = L('MM'e1)(e2);
+  * CC crossing
+     2 R(e1)(e2'CC') = L(e1'CC')(e2);
+  * MC crossing
+     3 R(e1)('M'e2'C') = L('M'e1'C')(e2);
+  * M crossing
+     4 R(e1)('M'e2) = L('M'e1)(e2);
+  * C crossing
+     5 R(e1)(e2'C') = L(e1'C')(e2);
+  * Otherwise move impossible
+     s.M eS = Imposs;
+        }
+   
+  * Admissibility of the move
+  Admiss {
+    s.Side(eL)(eR), <Noeat eL>:T, <Noeat eR>:T =
+              s.Side(eL)(eR);   
+    eS = Imposs;
+         }
+   
+  * No eating missionaries
+  Noeat {
+  *1. Both missionaries and cannibals are present
+    'M'e1'C'= <Compare e1>;
+  * Otherwise OK
+     e1 = T; }
+   
+  * Both M and C on the bank.Compare the numbers.
+  Compare {
+     'C'e1 = F;
+     'M'e1'C'= <Compare e1>;
+     e1 = T; }
+   
+  * Print the path leading to the goal
+  Path {
+     (0'='eS) e2 = 
+      <Prout 'The initial state:            'eS>
+      <Path e2>;
+     (s.M'='s.Side eS) e2, 
+          <Look-up s.M In <Table>>: e.Who =
+          <Prout e.Who ' crossing to  's.Side 
+                ' bank:  state ' s.Side eS>
+          <Path e2>;
+      = ;      
+        }
+   
+  Look-up { sM In e1 sM(e.Who) e2 = e.Who; }
+  Table { = 
+       1('MM') 2('CC') 3('MC') 4('M ') 5('C '); }

@@ -13,11 +13,12 @@ java -jar ref5.jar <path-to-file-with-program>
 ### Examples
  There are some examples in the "ref5-examples" folder:
  * `fib.ref5` - calculates n-th fibonacci number
- * `call.ref5` - call built-in function with give args(e.g. `'Add' 2 3` or `'Mu' 'Add' 2 3`)
+ * `call.ref5` - call built-in function with give args(e.g. `Add 2 3` or `Mu Add 2 3`)
  * `rev.ref5` - reverses given expression
  * `pal.ref5` - checks if the given expression is palindrome
  * `seq.ref5` - checks if the given sequence of A and B is a correct braces sequence.
  * `prime.ref5` - prints all prime numbers until the given number
+ * `cannibals.ref5` -- solution of the cannibals and missionaries problem
 
 ### Tests
 ```shell
